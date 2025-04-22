@@ -47,6 +47,13 @@ def read_otp(
     session: SessionDep,
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
-) -> list[Notification] :
+) -> list[Notification]:
     noti = session.exec(select(Notification).offset(offset).limit(limit)).all()
     return noti
+
+@app.get('/search-otp/')
+def search_ref(ref: str = Query(..., min_length=1)) -> list[Notification]:
+    with Session(engine) as session:
+        statement = select(Notification).where(Notification.msg.contains(ref))
+        results = session.exec(statement).all()
+        return results

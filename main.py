@@ -28,22 +28,25 @@ SessionDep = Annotated[Session, Depends(get_session)]
 app = FastAPI(on_startup=[create_db_and_tables])
 
 @app.get('/')
-def read_root():
-    return {"message": "KERORO"}
+async def read_root():
+    return {"message": "Hello NOFTY"}
 
 @app.get('/items/{id}')
-def read_item(id: int):
+async def read_item(id: int):
     return {"item": id }
 
 @app.post('/notify/')
-def create_noti(notification: Notification, session: SessionDep) -> Notification:
+async def create_noti(
+    notification: Notification, 
+    session: SessionDep
+) -> Notification:
     session.add(notification)
     session.commit()
     session.refresh(notification)
     return notification
 
 @app.get('/messages/')
-def read_otp(
+async def read_otp(
     session: SessionDep,
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
@@ -52,8 +55,19 @@ def read_otp(
     return noti
 
 @app.get('/search-otp/')
-def search_ref(ref: str = Query(..., min_length=1)) -> list[Notification]:
+async def search_ref(
+    ref: str = Query(..., min_length=1)
+) -> list[Notification]:
     with Session(engine) as session:
-        statement = select(Notification).where(Notification.msg.contains(ref))
+        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'SMSNotification')
+        results = session.exec(statement).all()
+        return results
+    
+@app.get('/search-email-otp/')
+async def search_ref(
+    ref: str = Query(min_length=1)
+) -> list[Notification]:
+    with Session(engine) as session:
+        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'OutlookNotification')
         results = session.exec(statement).all()
         return results

@@ -1,14 +1,15 @@
-# https://www.youtube.com/watch?v=G4vH5IqLvDI
-# /UDjSSq,WW32a36
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+from datetime import datetime, timezone, timedelta
+limit_otp_minutes = 5
 
 class Notification(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     src: str = Field(index=True)
     msg: str = Field(index=True)
+    time: datetime = Field(index=True, default_factory=lambda: datetime.now(timezone.utc))
 
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
@@ -58,8 +59,10 @@ async def read_otp(
 async def search_ref(
     ref: str = Query(..., min_length=1)
 ) -> list[Notification]:
+    now = datetime.now(timezone.utc)
+    limit_time = now - timedelta(minutes=limit_otp_minutes)
     with Session(engine) as session:
-        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'SMSNotification')
+        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'SMSNotification').where(Notification.time >= limit_time)
         results = session.exec(statement).all()
         return results
     
@@ -67,7 +70,9 @@ async def search_ref(
 async def search_ref(
     ref: str = Query(min_length=1)
 ) -> list[Notification]:
+    now = datetime.now(timezone.utc)
+    limit_time = now - timedelta(minutes=limit_otp_minutes)
     with Session(engine) as session:
-        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'OutlookNotification')
+        statement = select(Notification).where(Notification.msg.contains(ref)).where(Notification.src == 'OutlookNotification').where(Notification.time >= limit_time)
         results = session.exec(statement).all()
         return results
